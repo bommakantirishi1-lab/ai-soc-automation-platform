@@ -1,0 +1,9 @@
+[
+  {"source_ip": "192.168.1.10", "event_type": "failed_login"},
+  {"source_ip": "192.168.1.10", "event_type": "successful_login"},
+  {"source_ip": "192.168.1.10", "event_type": "process_creation"},
+  {"source_ip": "10.0.0.5", "event_type": "failed_login"},
+  {"source_ip": "10.0.0.5", "event_type": "failed_login"},
+  {"source_ip": "10.0.0.5", "event_type": "failed_login"},
+  {"source_ip": "172.16.0.9", "event_type": "outbound_connection"}
+]

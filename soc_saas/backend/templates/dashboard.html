@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOC Automation Platform</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>🛡 SOC Automation & AI Response Platform</h1>
+    <p class="author">Built by Sai Rishi Kumar Bommakanti</p>
+
+    <form action="/run-detection" method="post">
+        <button class="run-btn">Run Detection Engine</button>
+    </form>
+
+    <h2>Active Alerts</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Source IP</th>
+            <th>Score</th>
+            <th>Severity</th>
+            <th>Assigned To</th>
+            <th>Status</th>
+            <th>Created At</th>
+        </tr>
+
+        {% for alert in alerts %}
+        <tr>
+            <td>{{ alert.id }}</td>
+            <td>{{ alert.source_ip }}</td>
+            <td>{{ alert.score }}</td>
+            <td>
+                <span class="severity {{ alert.severity | lower }}">
+                    {{ alert.severity }}
+                </span>
+            </td>
+            <td>{{ alert.assigned_to }}</td>
+            <td>{{ alert.status }}</td>
+            <td>{{ alert.created_at }}</td>
+        </tr>
+        {% endfor %}
+
+    </table>
+
+</div>
+
+</body>
+</html>
