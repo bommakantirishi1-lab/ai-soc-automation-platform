@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from engine import run_engine, alert_db, deduplicator, threat_feed_service
 from datetime import datetime
+
+# Import functions, not objects
+from engine import run_engine
 
 st.set_page_config(
     page_title="SOC Automation Platform",
@@ -36,6 +38,9 @@ st.divider()
 st.subheader("📊 Detection Summary")
 
 col1, col2, col3, col4, col5 = st.columns(5)
+
+# Import after run_engine to avoid circular imports
+from engine import alert_db, deduplicator, threat_feed_service
 
 # Get all stored alerts (persistent)
 all_stored_alerts = alert_db.get_all_alerts()
