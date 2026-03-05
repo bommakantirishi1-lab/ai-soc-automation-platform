@@ -1,260 +1,256 @@
-import streamlit as st
 import requests
 import pandas as pd
-import plotly.express as px
+import random
+import time
 from datetime import datetime
+from sklearn.ensemble import IsolationForest
+from threading import Lock
 
-API_URL = "http://localhost:8000/run"
+# ===============================
+# CONFIG
+# ===============================
 
-st.set_page_config(
-    page_title="AI SOC Command Center",
-    layout="wide"
-)
+TELEGRAM_BOT_TOKEN = "8539315269:AAGwjmVnOd1Mmktr-d1TK3ENQtjEHrN7uWg"
+TELEGRAM_CHAT_ID = "8555058492"
 
-st.title("🛡 AI SOC Command Center")
-st.caption("Detection Engineering | Threat Intelligence | MITRE ATT&CK | Incident Response")
+ANALYST_NAME = "Sai Rishi Kumar Bommakanti"
 
-# ================================
-# REFRESH PANEL
-# ================================
+cache_lock = Lock()
 
-col_refresh, col_time = st.columns([1,4])
-
-with col_refresh:
-    if st.button("🔄 Run Detection"):
-        st.rerun()
-
-with col_time:
-    st.write("Last Updated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-st.divider()
-
-# ================================
-# FETCH DATA
-# ================================
-
-try:
-
-    response = requests.get(API_URL, timeout=60)
-    response.raise_for_status()
-    data = response.json()
-
-    alerts = data.get("alerts_generated", [])
-    visitors = data.get("visitors", [])
-
-except Exception as e:
-
-    st.error(f"❌ Engine Error: {e}")
-    st.stop()
-
-if not alerts:
-    st.warning("⚠ No alerts detected yet.")
-    st.stop()
-
-df = pd.DataFrame(alerts)
-
-# ================================
-# SOC METRICS
-# ================================
-
-total_alerts = len(df)
-high = len(df[df["severity"] == "High"])
-medium = len(df[df["severity"] == "Medium"])
-low = len(df[df["severity"] == "Low"])
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("🚨 Total Alerts", total_alerts)
-col2.metric("🔴 High", high)
-col3.metric("🟠 Medium", medium)
-col4.metric("🟢 Low", low)
-
-st.divider()
-
-# ================================
-# GLOBAL ATTACK MAP
-# ================================
-
-st.subheader("🌍 Global Attack Map")
-
-if visitors:
-
-    df_visitors = pd.DataFrame(visitors)
-
-    if "lat" in df_visitors.columns:
-
-        fig_map = px.scatter_geo(
-            df_visitors,
-            lat="lat",
-            lon="lon",
-            hover_name="ip",
-            hover_data=["country","city","isp"],
-            title="Detected Threat Activity"
-        )
-
-        st.plotly_chart(fig_map, use_container_width=True)
-
-    else:
-        st.info("Waiting for geo data...")
-
-st.divider()
-
-# ================================
-# SEVERITY DISTRIBUTION
-# ================================
-
-col_left, col_right = st.columns(2)
-
-with col_left:
-
-    st.subheader("📊 Severity Distribution")
-
-    fig_pie = px.pie(
-        df,
-        names="severity",
-        title="Alert Severity Breakdown"
-    )
-
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-with col_right:
-
-    st.subheader("🚨 Top Risky IPs")
-
-    top_ips = (
-        df.groupby("ip")["score"]
-        .max()
-        .reset_index()
-        .sort_values(by="score", ascending=False)
-    )
-
-    fig_bar = px.bar(
-        top_ips,
-        x="ip",
-        y="score",
-        title="Risk Score by IP"
-    )
-
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-st.divider()
-
-# ================================
-# MITRE ATT&CK PANEL
-# ================================
-
-st.subheader("🎯 MITRE ATT&CK Techniques")
-
-if "mitre_technique" in df.columns:
-
-    techniques = df.explode("mitre_technique")
-
-    technique_counts = techniques["mitre_technique"].value_counts().reset_index()
-    technique_counts.columns = ["Technique","Count"]
-
-    fig_mitre = px.bar(
-        technique_counts,
-        x="Technique",
-        y="Count",
-        title="Detected MITRE Techniques"
-    )
-
-    st.plotly_chart(fig_mitre, use_container_width=True)
-
-st.divider()
-
-# ================================
-# ATTACK TIMELINE
-# ================================
-
-st.subheader("⏱ Attack Timeline")
-
-timeline = []
-
-for index, row in df.iterrows():
-
-    for event in row["events"]:
-
-        timeline.append({
-            "IP": row["ip"],
-            "Event": event,
-            "Severity": row["severity"]
-        })
-
-timeline_df = pd.DataFrame(timeline)
-
-st.dataframe(timeline_df, use_container_width=True)
-
-st.divider()
-
-# ================================
-# ALERT TABLE
-# ================================
-
-st.subheader("🗂 SOC Incident Queue")
-
-st.dataframe(df, use_container_width=True)
-
-# ================================
-# ENGINE STATUS
-# ================================
-
-st.subheader("⚙ Engine Status")
-
-st.success(f"Engine Status: {data.get('engine_status','unknown')}")
-
-st.write("Last Execution:", data.get("last_execution_time"))
-st.write("Execution Duration:", data.get("execution_duration_seconds"), "seconds")
-
-# ================================
-# EXPORT ALERTS
-# ================================
-
-csv = df.to_csv(index=False)
-
-st.download_button(
-    label="📥 Download Alerts",
-    data=csv,
-    file_name="soc_alerts.csv",
-    mime="text/csv"
-)
-# ================================
-# ISO 27001 CONTROL MONITORING
-# ================================
-
-st.subheader("📋 ISO 27001 Security Control Monitoring")
-
-iso_mapping = {
-    "failed_login": "A.9 Access Control",
-    "successful_login": "A.9 Access Control",
-    "process_creation": "A.12 Operations Security",
-    "outbound_connection": "A.13 Network Security"
+LATEST_RESULTS = {
+    "alerts_generated": [],
+    "visitors": [],
+    "engine_status": "idle",
+    "last_execution_time": None,
+    "execution_duration_seconds": 0
 }
 
-iso_events = []
+# ===============================
+# DEMO ATTACK SIMULATOR
+# ===============================
 
-for index, row in df.iterrows():
-    for event in row["events"]:
-        control = iso_mapping.get(event)
-        if control:
-            iso_events.append(control)
+def generate_demo_attacks():
 
-if iso_events:
+    ips = [
+        "185.220.101.12",
+        "45.95.147.23",
+        "103.21.244.15",
+        "91.134.188.10",
+        "194.26.192.44",
+        "23.129.64.210",
+        "176.119.1.22",
+        "162.247.74.200",
+        "104.244.72.115",
+        "5.188.206.22",
+        "8.8.8.8",
+        "1.1.1.1"
+    ]
 
-    iso_df = pd.DataFrame(iso_events, columns=["ISO Control"])
+    events = [
+        "failed_login",
+        "successful_login",
+        "process_creation",
+        "outbound_connection"
+    ]
 
-    iso_summary = iso_df.value_counts().reset_index()
-    iso_summary.columns = ["ISO Control","Event Count"]
+    data = []
 
-    fig_iso = px.bar(
-        iso_summary,
-        x="ISO Control",
-        y="Event Count",
-        title="Security Monitoring by ISO 27001 Control"
-    )
+    for _ in range(random.randint(15,20)):
 
-    st.plotly_chart(fig_iso, use_container_width=True)
+        data.append({
+            "source_ip": random.choice(ips),
+            "event_type": random.choice(events),
+            "timestamp": datetime.utcnow().isoformat()
+        })
 
-else:
+    return pd.DataFrame(data)
 
-    st.info("No ISO control events detected yet.")
+# ===============================
+# THREAT INTEL
+# ===============================
+
+def threat_intel_score(ip):
+
+    suspicious_ranges = [
+        "185.220",
+        "45.95",
+        "103.21",
+        "91.134",
+        "194.26"
+    ]
+
+    for r in suspicious_ranges:
+        if ip.startswith(r):
+            return 3
+
+    return 0
+
+# ===============================
+# GEOLOOKUP
+# ===============================
+
+def lookup_ip(ip):
+
+    try:
+
+        res = requests.get(
+            f"http://ip-api.com/json/{ip}",
+            timeout=5
+        ).json()
+
+        return {
+            "ip": ip,
+            "country": res.get("country"),
+            "city": res.get("city"),
+            "isp": res.get("isp"),
+            "lat": res.get("lat"),
+            "lon": res.get("lon")
+        }
+
+    except:
+
+        return {
+            "ip": ip,
+            "country": "Unknown",
+            "city": "Unknown",
+            "isp": "Unknown",
+            "lat": None,
+            "lon": None
+        }
+
+# ===============================
+# ML ENGINE
+# ===============================
+
+def run_ml(df):
+
+    try:
+
+        feature_df = df.groupby("source_ip").size().reset_index(name="event_count")
+
+        if len(feature_df) < 5:
+            return 0
+
+        model = IsolationForest(
+            contamination=0.1,
+            random_state=42
+        )
+
+        model.fit(feature_df[["event_count"]])
+
+        preds = model.predict(feature_df[["event_count"]])
+
+        if -1 in preds:
+            return 3
+
+        return 0
+
+    except:
+        return 0
+
+# ===============================
+# SEVERITY
+# ===============================
+
+def assign_severity(score):
+
+    if score <= 4:
+        return "Low"
+
+    elif score <= 9:
+        return "Medium"
+
+    else:
+        return "High"
+
+# ===============================
+# TELEGRAM ALERT
+# ===============================
+
+def send_telegram(message):
+
+    try:
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+
+        requests.post(url,data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message
+        })
+
+    except:
+        pass
+
+# ===============================
+# MAIN ENGINE
+# ===============================
+
+def run_engine():
+
+    start = time.time()
+
+    df = generate_demo_attacks()
+
+    ml_score = run_ml(df)
+
+    alerts = []
+    visitors = []
+
+    for ip in df["source_ip"].unique():
+
+        ip_df = df[df["source_ip"] == ip]
+
+        events = ip_df["event_type"].tolist()
+
+        ti_score = threat_intel_score(ip)
+
+        base_score = len(events)
+
+        final_score = base_score + ml_score + ti_score
+
+        severity = assign_severity(final_score)
+
+        geo = lookup_ip(ip)
+
+        message = f"""
+🚨 SOC ALERT
+
+IP: {ip}
+Country: {geo.get("country")}
+
+Severity: {severity}
+Score: {final_score}
+
+Assigned Analyst:
+{ANALYST_NAME}
+"""
+
+        send_telegram(message)
+
+        alerts.append({
+            "ip": ip,
+            "score": final_score,
+            "severity": severity,
+            "events": events,
+            "country": geo.get("country"),
+            "city": geo.get("city"),
+            "isp": geo.get("isp"),
+            "lat": geo.get("lat"),
+            "lon": geo.get("lon"),
+            "analyst": ANALYST_NAME,
+            "status": "Investigating"
+        })
+
+        visitors.append(geo)
+
+    end = time.time()
+
+    with cache_lock:
+
+        LATEST_RESULTS["alerts_generated"] = alerts
+        LATEST_RESULTS["visitors"] = visitors
+        LATEST_RESULTS["engine_status"] = "completed"
+        LATEST_RESULTS["last_execution_time"] = datetime.utcnow().isoformat()
+        LATEST_RESULTS["execution_duration_seconds"] = round(end-start,2)
+
+    return LATEST_RESULTS
