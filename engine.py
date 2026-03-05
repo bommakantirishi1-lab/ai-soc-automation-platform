@@ -32,10 +32,13 @@ ANALYST_NAME = "Sai Rishi Kumar Bommakanti"
 
 LATEST_RESULTS = {
     "alerts_generated": [],
+    "visitors": [],
     "engine_status": "never_run",
     "last_execution_time": None,
     "execution_duration_seconds": 0
 }
+
+TICKET_COUNTER = 1
 
 cache_lock = Lock()
 
@@ -99,7 +102,7 @@ def evaluate_rules(events):
 def threat_intel_score(ip):
 
     suspicious_ranges = [
-        "185.220",   # TOR
+        "185.220",
         "45.95",
         "103.21",
         "91.134",
@@ -107,11 +110,36 @@ def threat_intel_score(ip):
     ]
 
     for r in suspicious_ranges:
-
         if ip.startswith(r):
             return 3
 
     return 0
+
+# ==================================
+# IP GEO LOOKUP
+# ==================================
+
+def lookup_ip(ip):
+
+    try:
+
+        url = f"http://ip-api.com/json/{ip}"
+
+        response = requests.get(url, timeout=5).json()
+
+        return {
+            "ip": ip,
+            "country": response.get("country"),
+            "city": response.get("city"),
+            "isp": response.get("isp"),
+            "org": response.get("org"),
+            "lat": response.get("lat"),
+            "lon": response.get("lon"),
+            "time": datetime.utcnow().isoformat()
+        }
+
+    except:
+        return {"ip": ip}
 
 # ==================================
 # AI EXPLANATION
@@ -130,33 +158,19 @@ Observed Events:
 
 Explanation:
 A sequence of authentication or system events indicates
-potential malicious activity such as credential abuse,
-privilege escalation, or command execution.
+possible credential abuse or command execution activity.
 
-Recommended Investigation Steps:
+Recommended Investigation:
 
-• Review authentication logs
-• Check endpoint process activity
-• Inspect outbound network traffic
-• Correlate with threat intelligence feeds
+• Review login logs
+• Check endpoint activity
+• Inspect outbound connections
 """
 
     return explanation.strip()
 
 # ==================================
-# ELASTIC CLIENT
-# ==================================
-
-def get_es():
-
-    return Elasticsearch(
-        ES_HOST,
-        basic_auth=(ES_USER, ES_PASS),
-        verify_certs=False
-    )
-
-# ==================================
-# TELEGRAM ALERTING
+# TELEGRAM ALERT
 # ==================================
 
 def send_telegram(message):
@@ -172,8 +186,20 @@ def send_telegram(message):
 
         requests.post(url, data=payload, timeout=5)
 
-    except Exception:
+    except:
         pass
+
+# ==================================
+# ELASTIC CLIENT
+# ==================================
+
+def get_es():
+
+    return Elasticsearch(
+        ES_HOST,
+        basic_auth=(ES_USER, ES_PASS),
+        verify_certs=False
+    )
 
 # ==================================
 # FETCH ALERTS
@@ -206,7 +232,7 @@ def fetch_recent_alerts():
 
         return pd.DataFrame(data)
 
-    except Exception:
+    except:
 
         demo_data = [
 
@@ -257,10 +283,7 @@ def run_ml(df):
         if len(feature_df) < 5:
             return 0
 
-        model = IsolationForest(
-            contamination=0.1,
-            random_state=42
-        )
+        model = IsolationForest(contamination=0.1, random_state=42)
 
         model.fit(feature_df[["event_count"]])
 
@@ -271,11 +294,11 @@ def run_ml(df):
 
         return 0
 
-    except Exception:
+    except:
         return 0
 
 # ==================================
-# SEVERITY ENGINE
+# SEVERITY
 # ==================================
 
 def assign_severity(score):
@@ -293,7 +316,31 @@ def assign_severity(score):
         return "High"
 
 # ==================================
-# MAIN DETECTION ENGINE
+# TICKET CREATION
+# ==================================
+
+def create_ticket(alert):
+
+    global TICKET_COUNTER
+
+    ticket_id = f"SOC-2026-{str(TICKET_COUNTER).zfill(4)}"
+
+    TICKET_COUNTER += 1
+
+    ticket = {
+        "ticket_id": ticket_id,
+        "ip": alert["ip"],
+        "severity": alert["severity"],
+        "score": alert["score"],
+        "analyst": alert["analyst"],
+        "status": "Investigating",
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+    return ticket
+
+# ==================================
+# MAIN ENGINE
 # ==================================
 
 def run_engine():
@@ -303,11 +350,7 @@ def run_engine():
     df = fetch_recent_alerts()
 
     if df.empty:
-
-        return {
-            "alerts_generated": [],
-            "engine_status": "no_data"
-        }
+        return {"alerts_generated": [], "engine_status": "no_data"}
 
     ml_score = run_ml(df)
 
@@ -331,85 +374,63 @@ def run_engine():
 
         explanation = generate_explanation(ip, events, severity)
 
+        ip_info = lookup_ip(ip)
+
         message = f"""
 🚨 SOC Alert
 
 IP: {ip}
-Events: {len(events)}
+Country: {ip_info.get('country')}
+ISP: {ip_info.get('isp')}
 
 Score: {final_score}
 Severity: {severity}
 
-Threat Intel Score: {ti_score}
-
-Rules Triggered:
-{[r["name"] for r in rules]}
-
-MITRE Techniques:
-{[r["mitre_technique"] for r in rules]}
+Rules: {[r["name"] for r in rules]}
 
 Assigned Analyst:
 {ANALYST_NAME}
-
-{explanation}
 """
 
         send_telegram(message)
 
-        generated.append({
+        alert_object = {
 
             "ip": ip,
-
+            "country": ip_info.get("country"),
+            "city": ip_info.get("city"),
+            "isp": ip_info.get("isp"),
             "score": final_score,
-
             "severity": severity,
-
             "events": events,
-
-            "event_count": len(events),
-
             "rules": [r["name"] for r in rules],
-
-            "rule_count": len(rules),
-
-            "mitre_tactic": [r["mitre_tactic"] for r in rules],
-
             "mitre_technique": [r["mitre_technique"] for r in rules],
-
             "threat_intel_score": ti_score,
-
             "analyst": ANALYST_NAME,
-
             "status": "Investigating",
-
             "ai_summary": explanation
+        }
 
-        })
+        ticket = create_ticket(alert_object)
+
+        generated.append(alert_object)
+
+        LATEST_RESULTS["alerts_generated"] = generated
+        LATEST_RESULTS["visitors"].append(ip_info)
 
     end_time = time.time()
 
-    with cache_lock:
-
-        LATEST_RESULTS["alerts_generated"] = generated
-
-        LATEST_RESULTS["engine_status"] = "completed"
-
-        LATEST_RESULTS["last_execution_time"] = datetime.utcnow().isoformat()
-
-        LATEST_RESULTS["execution_duration_seconds"] = round(end_time - start_time, 2)
+    LATEST_RESULTS["engine_status"] = "completed"
+    LATEST_RESULTS["last_execution_time"] = datetime.utcnow().isoformat()
+    LATEST_RESULTS["execution_duration_seconds"] = round(end_time - start_time, 2)
 
     return LATEST_RESULTS
 
 # ==================================
-# REAL TIME DETECTION LOOP
+# REAL TIME LOOP
 # ==================================
 
 def start_detection_loop(interval_seconds=300):
-
-    """
-    Continuously runs the detection engine
-    every X seconds (default 5 minutes)
-    """
 
     print("SOC Detection Engine Started")
 
@@ -417,11 +438,9 @@ def start_detection_loop(interval_seconds=300):
 
         try:
 
-            print("Running detection cycle...")
+            print("Running detection cycle")
 
             run_engine()
-
-            print("Detection cycle completed")
 
         except Exception as e:
 
@@ -430,7 +449,7 @@ def start_detection_loop(interval_seconds=300):
         time.sleep(interval_seconds)
 
 # ==================================
-# RUN ENGINE DIRECTLY
+# RUN ENGINE
 # ==================================
 
 if __name__ == "__main__":
