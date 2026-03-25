@@ -11,6 +11,7 @@ from alert_deduplication import AlertDeduplicator
 from threat_feed import ThreatFeedIntegration
 from config import config
 from engine import run_engine
+from modules.nl_threat_hunter import threat_hunter
 
 # Initialize the modules
 alert_db = AlertDatabase(config.DB_PATH)
@@ -175,3 +176,39 @@ st.divider()
 last_run = results.get("last_execution_time", "N/A")
 execution_time = results.get("execution_duration_seconds", 0)
 st.caption(f"Last Engine Run: {last_run} | Execution Time: {execution_time}s")
+
+
+# ===============================
+# NATURAL LANGUAGE THREAT HUNTING
+# ===============================
+st.divider()
+st.subheader("🔍 NL Threat Hunter - AI-Powered Threat Hunting")
+st.write("Translate natural language queries to SIEM hunts, execute on logs, enrich IOCs, and map to MITRE ATT&CK.")
+
+col_hunt1, col_hunt2 = st.columns(2)
+with col_hunt1:
+    nl_query = st.text_input(
+        "Enter threat hunt in natural language:",
+        placeholder="e.g., 'Find PowerShell executions with network connections'"
+    )
+    query_lang = st.selectbox("Query Language", ["KQL", "EQL"], key="hunt_lang")
+
+with col_hunt2:
+    if st.button("🔍 Hunt", key="hunt_btn"):
+        if nl_query:
+            with st.spinner("Executing threat hunt..."):
+                hunt_result = threat_hunter.hunt(nl_query, target_lang=query_lang)
+                st.success(f"Hunt complete! Found {hunt_result.get('result_count', 0)} results")
+                st.json(hunt_result)
+        else:
+            st.warning("Please enter a threat hunting query.")
+
+# Display hunt history
+if st.checkbox("Show Hunt History"):
+    history = threat_hunter.get_hunt_history()
+    if history:
+        for hunt in history[-5:]:  # Show last 5 hunts
+            with st.expander(f"Hunt: {hunt.get('nl_query', 'Unknown')} - {hunt.get('timestamp', '')}"):
+                st.json(hunt)
+    else:
+        st.info("No hunts executed yet.")
