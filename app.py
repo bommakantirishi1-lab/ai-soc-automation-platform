@@ -37,8 +37,7 @@ if page == "Dashboard":
     if not df.empty:
         m2.metric("🔴 Critical", len(df[df["severity"] == "High"]))
         m3.metric("🟡 Medium", len(df[df["severity"] == "Medium"]))
-        m4.metric(🟢 Low", len(df[df["severity"] == "Low"]))
-    
+    m4.metric("🟢 Low", len(df[df["severity"] == "Low"]))    
     st.divider()
     
     if not df.empty:
