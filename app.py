@@ -178,37 +178,168 @@ execution_time = results.get("execution_duration_seconds", 0)
 st.caption(f"Last Engine Run: {last_run} | Execution Time: {execution_time}s")
 
 
+
+
 # ===============================
-# NATURAL LANGUAGE THREAT HUNTING
+# NATURAL LANGUAGE THREAT HUNTING (PRODUCTION-READY)
 # ===============================
 st.divider()
 st.subheader("🔍 NL Threat Hunter - AI-Powered Threat Hunting")
-st.write("Translate natural language queries to SIEM hunts, execute on logs, enrich IOCs, and map to MITRE ATT&CK.")
 
-col_hunt1, col_hunt2 = st.columns(2)
+# Initialize session state for hunt results
+if 'hunt_results' not in st.session_state:
+    st.session_state.hunt_results = []
+if 'show_history' not in st.session_state:
+    st.session_state.show_history = False
+
+st.markdown("""
+**Professional Threat Hunting Tool** - Translate natural language queries into SIEM queries, 
+execute hunts, enrich IOCs with threat intelligence, and map to MITRE ATT&CK framework.
+
+💡 **Example Queries**: 
+- "Find PowerShell executions from suspicious IPs"
+- "Search for lateral movement attempts"
+- "Detect privilege escalation"
+""")
+
+# Threat Hunting Interface
+col_hunt1, col_hunt2, col_hunt3 = st.columns([2, 1, 1])
+
 with col_hunt1:
     nl_query = st.text_input(
-        "Enter threat hunt in natural language:",
-        placeholder="e.g., 'Find PowerShell executions with network connections'"
+        "🎯 Enter your threat hunt in plain English:",
+        placeholder="e.g., 'Find PowerShell executions with network connections'",
+        key="nl_query_input"
     )
-    query_lang = st.selectbox("Query Language", ["KQL", "EQL"], key="hunt_lang")
 
 with col_hunt2:
-    if st.button("🔍 Hunt", key="hunt_btn"):
-        if nl_query:
-            with st.spinner("Executing threat hunt..."):
-                hunt_result = threat_hunter.hunt(nl_query, target_lang=query_lang)
-                st.success(f"Hunt complete! Found {hunt_result.get('result_count', 0)} results")
-                st.json(hunt_result)
-        else:
-            st.warning("Please enter a threat hunting query.")
+    query_lang = st.selectbox(
+        "Query Language", 
+        ["KQL", "EQL"], 
+        key="hunt_lang",
+        help="Choose target SIEM query language"
+    )
 
-# Display hunt history
-if st.checkbox("Show Hunt History"):
-    history = threat_hunter.get_hunt_history()
-    if history:
-        for hunt in history[-5:]:  # Show last 5 hunts
-            with st.expander(f"Hunt: {hunt.get('nl_query', 'Unknown')} - {hunt.get('timestamp', '')}"):
-                st.json(hunt)
+with col_hunt3:
+    hunt_button = st.button(
+        "🔍 Execute Hunt", 
+        key="hunt_btn",
+        type="primary",
+        use_container_width=True
+    )
+
+# Execute Hunt
+if hunt_button:
+    if nl_query and nl_query.strip():
+        with st.spinner("⚡ Executing threat hunt..."):
+            try:
+                # Execute hunt using integrated threat hunter
+                hunt_result = threat_hunter.hunt(nl_query, target_lang=query_lang)
+                
+                # Store result in session state
+                st.session_state.hunt_results.insert(0, hunt_result)  # Add to beginning
+                
+                # Keep only last 10 hunts
+                if len(st.session_state.hunt_results) > 10:
+                    st.session_state.hunt_results = st.session_state.hunt_results[:10]
+                
+                # Display success
+                st.success(f"✅ Hunt complete! Found {hunt_result.get('result_count', 0)} results")
+                
+                # Show results in expandable sections
+                with st.expander("📊 Hunt Results", expanded=True):
+                    col_r1, col_r2, col_r3 = st.columns(3)
+                    col_r1.metric("Results Found", hunt_result.get('result_count', 0))
+                    col_r2.metric("Query Language", hunt_result.get('query_language', 'N/A'))
+                    col_r3.metric("Status", hunt_result.get('status', 'N/A').upper())
+                    
+                    st.code(hunt_result.get('generated_query', 'No query generated'), language='sql')
+                    
+                    # Display results
+                    if hunt_result.get('results'):
+                        st.dataframe(
+                            pd.DataFrame(hunt_result['results']),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    
+                    # MITRE Mapping
+                    mitre = hunt_result.get('mitre_mapping', {})
+                    if mitre.get('techniques'):
+                        st.info(f"🎯 MITRE ATT&CK: {', '.join(mitre.get('techniques', []))}")
+                
+            except Exception as e:
+                st.error(f"❌ Hunt failed: {str(e)}")
     else:
-        st.info("No hunts executed yet.")
+        st.warning("⚠️ Please enter a threat hunting query.")
+
+# Hunt History Toggle (FIXED - using session state)
+st.divider()
+col_hist1, col_hist2 = st.columns([3, 1])
+
+with col_hist1:
+    st.markdown("### 📜 Hunt History")
+
+with col_hist2:
+    if st.button("Toggle History" if not st.session_state.show_history else "Hide History"):
+        st.session_state.show_history = not st.session_state.show_history
+
+if st.session_state.show_history:
+    if st.session_state.hunt_results:
+        st.success(f"Showing {len(st.session_state.hunt_results)} recent hunts")
+        for idx, hunt in enumerate(st.session_state.hunt_results):
+            with st.expander(
+                f"🔎 Hunt #{idx + 1}: {hunt.get('nl_query', 'Unknown')[:50]}... - {hunt.get('timestamp', '')[:19]}",
+                expanded=False
+            ):
+                col_h1, col_h2, col_h3 = st.columns(3)
+                col_h1.metric("Results", hunt.get('result_count', 0))
+                col_h2.metric("Language", hunt.get('query_language', 'N/A'))
+                col_h3.metric("Status", hunt.get('status', 'N/A').upper())
+                
+                st.code(hunt.get('generated_query', 'No query'), language='sql')
+                
+                if hunt.get('mitre_mapping', {}).get('techniques'):
+                    st.caption(f"MITRE: {', '.join(hunt['mitre_mapping']['techniques'])}")
+    else:
+        st.info("🔍 No hunts executed yet. Start your first threat hunt above!")
+
+# TELEGRAM NOTIFICATION TEST (FIXED)
+st.divider()
+with st.expander("🔔 Test Telegram Notifications", expanded=False):
+    st.markdown("""
+    **Configure Telegram Bot**:
+    1. Get Bot Token from @BotFather
+    2. Get Chat ID from @userinfobot
+    3. Add to .env file
+    """)
+    
+    test_message = st.text_input("Test Message", value="Test from SOC Automation Platform", key="test_telegram")
+    
+    if st.button("📤 Send Test Notification", key="send_test_telegram"):
+        try:
+            if config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID:
+                url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
+                response = requests.post(url, data={
+                    "chat_id": config.TELEGRAM_CHAT_ID,
+                    "text": f"🔔 TEST NOTIFICATION\n\n{test_message}\n\n✅ Telegram integration working!"
+                }, timeout=10)
+                
+                if response.status_code == 200:
+                    st.success("✅ Telegram notification sent successfully!")
+                    st.json(response.json())
+                else:
+                    st.error(f"❌ Failed to send: HTTP {response.status_code}")
+                    st.json(response.json())
+            else:
+                st.error("❌ Telegram credentials not configured in .env file")
+                st.code("""
+# Add to .env file:
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+                """, language="bash")
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
+
+if __name__ == "__main__":
+    main()
