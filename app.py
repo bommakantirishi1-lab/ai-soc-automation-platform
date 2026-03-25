@@ -46,7 +46,7 @@ if page == "Dashboard":
         st.plotly_chart(fig_severity, use_container_width=True)
         
         st.subheader("📋 Recent Alerts")
-        st.dataframe(df.sort_values(by="timestamp", ascending=False).head(10), use_container_width=True)
+        st.dataframe(df.head(10), use_container_width=True)
     else:
         st.info("Run detection to populate alerts")
 
