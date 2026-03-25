@@ -120,10 +120,8 @@ def render_threat_hunter():
             st.code(res.get('query', 'No query generated'), language=query_lang.lower())
         with c2:
             st.subheader("🛡 MITRE Mapping")
-            st.info(f"Tactic: {res.get('mitre_tactic', 'N/A')}
+st.info(f"Tactic: {res.get('mitre_tactic', 'N/A')}\n\nTechnique: {res.get('mitre_technique', 'N/A')}")
 
-Technique: {res.get('mitre_technique', 'N/A')}")
-        
         with st.expander("View Raw Intelligence"):
             st.json(res)
 
