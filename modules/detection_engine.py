@@ -144,8 +144,8 @@ class DetectionEngine:
                             self._new_alert(
                                 rule_id="R004",
                                 rule_name="Impossible Travel Detected",
-                                severity="high",Fully implement all 5 productiFully implement all 5 production detection rules in detection_engine.pyon detection rules in detection_engine.py
-                                mitre=["T1078"],
+                                severity="high",
+                                                                mitre=["T1078"],
                                 row=row2,
                                 context={
                                     "reason": f"User logged in from {row1['geo_src']} and {row2['geo_src']} within {time_diff:.2f} hours",
