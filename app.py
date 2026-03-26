@@ -10,6 +10,13 @@ from threat_feed import ThreatFeedIntegration
 from config import config
 from engine import run_engine
 from modules.nl_threat_hunter import threat_hunter
+from modules.log_ingestion import LogIngestion
+from modules.detection_engine import DetectionEngine
+from modules.alert_manager import AlertManager
+from modules.case_manager import CaseManager
+from modules.threat_intel import ThreatIntel
+from modules.nvidia_ai import NvidiaAI
+from modules.newsletter import Newsletter
 
 alert_db = AlertDatabase(config.DB_PATH)
 deduplicator = AlertDeduplicator(config.ML_MODEL_PATH)
