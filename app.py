@@ -253,12 +253,7 @@ elif page == "NEURAL HUNTER":
         with st.spinner("Decoding linguistic vectors..."):
             time.sleep(1.2)
             st.markdown("### 🧬 SYNTHESIZED NEURAL LOGIC")
-            st.code("// AI Generated Code
-SecurityEvent
-| where EventID in (4728, 4732, 4756)
-| extend TargetGroup = tostring(TargetGroup)
-| where TargetGroup contains 'Admin'
-| summarize count() by User, TargetGroup, TimeGenerated
+            st.code("// AI Generated Code\nSecurityEvent\n| where EventID in (4728, 4732, 4756)\n| extend TargetGroup = tostring(TargetGroup)\n| where TargetGroup contains 'Admin'\n| summarize count() by User, TargetGroup, TimeGenerated\n| order by TimeGenerated desc", language=lang.lower())
 | order by TimeGenerated desc", language=lang.lower())
             st.markdown("<p style='color:#0f0; font-size:0.8rem;'>● LOGIC VALIDATED BY NEURAL ENGINE</p>", unsafe_allow_html=True)
 
