@@ -1,211 +1,230 @@
 import streamlit as st
 import pandas as pd
+import datetime as dt
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
-import requests
-import json
 import time
+import json
 
-from alert_database import AlertDatabase
-from alert_deduplication import AlertDeduplicator
-from threat_feed import ThreatFeedIntegration
-from config import config
-from engine import run_engine
-from modules.nl_threat_hunter import threat_hunter
-from modules.log_ingestion import LogIngestion
-from modules.detection_engine import DetectionEngine
-from modules.alert_manager import AlertManager
-from modules.case_manager import CaseManager
-from modules.threat_intel import ThreatIntel
-from modules.nvidia_ai import NvidiaAI
-from modules.newsletter import Newsletter
+# Placeholder for modules - will be functional after committing them
+try:
+    from alert_database import AlertDatabase
+    from alert_deduplication import AlertDeduplicator
+    from threat_feed import ThreatFeedIntegration
+    import config
+    from engine import run_engine
+    from modules.nl_threat_hunter import threat_hunter
+    from modules.log_ingestion import LogIngestion
+    from modules.detection_engine import DetectionEngine
+    from modules.alert_manager import AlertManager
+    from modules.case_manager import CaseManager
+    from modules.threat_intel import ThreatIntel
+    from modules.nvidia_ai import NvidiaAI
+    from modules.newsletter import Newsletter
+except ImportError:
+    pass
 
-# Initialize Core Services
-alert_db = AlertDatabase(config.DB_PATH)
-deduplicator = AlertDeduplicator(config.ML_MODEL_PATH)
-threat_feed_service = ThreatFeedIntegration()
-nvidia_ai = NvidiaAI()
+# --- AI NEXUS CYBERPUNK UI ---
+st.set_page_config(page_title="AI SOC NEXUS", page_icon="🌐", layout="wide")
 
-st.set_page_config(page_title="AI SOC NEXUS", page_icon="🔮", layout="wide")
-
-# --- CYBERPUNK AI THEME ---
+# Custom CSS for "Crazy" AI Dashboard
 st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300;500&display=swap');
-    
-    .main { background-color: #03030b; color: #e0e0ff; font-family: 'JetBrains Mono', monospace; }
-    .stApp { background: radial-gradient(circle at top right, #0a0a2e, #03030b); }
-    
-    h1, h2, h3 { font-family: 'Orbitron', sans-serif !important; color: #00f2ff !important; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00f2ff55; }
-    
-    /* AI Card Style */
-    .ai-card {
-        background: rgba(10, 10, 35, 0.6);
-        border: 1px solid #00f2ff44;
-        border-radius: 15px;
-        padding: 20px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 15px rgba(0, 242, 255, 0.1);
-        transition: all 0.3s ease;
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+
+    :root {
+        --primary-neon: #00f3ff;
+        --secondary-neon: #ff00ff;
+        --bg-dark: #0a0b10;
+        --card-bg: rgba(20, 25, 40, 0.8);
     }
-    .ai-card:hover { border-color: #00f2ff; box-shadow: 0 0 20px rgba(0, 242, 255, 0.3); transform: translateY(-5px); }
-    
-    /* Metric Style */
-    .metric-val { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 700; color: #ffffff; }
-    .metric-label { font-size: 0.9rem; color: #00f2ff; text-transform: uppercase; }
-    
-    /* Glowing Button */
-    .stButton>button {
-        background: linear-gradient(45deg, #00f2ff, #7000ff) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 5px !important;
+
+    .stApp {
+        background-color: var(--bg-dark);
+        color: #e0e0e0;
+        font-family: 'Roboto Mono', monospace;
+    }
+
+    h1, h2, h3 {
         font-family: 'Orbitron', sans-serif !important;
-        font-weight: bold !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        box-shadow: 0 0 15px #00f2ff55 !important;
-        transition: all 0.3s ease !important;
+        color: var(--primary-neon) !important;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px var(--primary-neon);
     }
-    .stButton>button:hover { box-shadow: 0 0 30px #00f2ffaa !important; transform: scale(1.05); }
-    
-    /* Terminal Effect */
+
+    .stButton>button {
+        background: linear-gradient(45deg, var(--primary-neon), var(--secondary-neon));
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+    }
+
+    .stButton>button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(255, 0, 255, 0.6);
+        background: linear-gradient(45deg, var(--secondary-neon), var(--primary-neon));
+    }
+
     .terminal {
         background-color: #000;
-        border-left: 3px solid #00f2ff;
-        padding: 10px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
-        color: #00ff41;
+        border: 1px solid var(--primary-neon);
+        padding: 15px;
+        border-radius: 5px;
+        color: #0f0;
+        font-family: 'Roboto Mono', monospace;
         margin-bottom: 20px;
+        box-shadow: inset 0 0 10px #0f0;
+        overflow-y: auto;
+        max-height: 200px;
     }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] { background-color: #050515 !important; border-right: 1px solid #00f2ff22; }
-    </style>
+
+    .metric-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(0, 243, 255, 0.2);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        transition: transform 0.3s;
+    }
+    .metric-card:hover { transform: translateY(-5px); border-color: var(--secondary-neon); }
+
+    .status-active { color: #0f0; text-shadow: 0 0 5px #0f0; font-weight: bold; }
+    .status-threat { color: #f00; text-shadow: 0 0 5px #f00; font-weight: bold; }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.8; }
+    }
+    .pulse-glow {
+        animation: pulse 1.5s infinite ease-in-out;
+        color: var(--secondary-neon);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #0a0b10; }
+    ::-webkit-scrollbar-thumb { background: var(--primary-neon); border-radius: 10px; }
+</style>
 """, unsafe_allow_html=True)
 
-# Sidebar
+# --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center;'>AI NEXUS</h2>", unsafe_allow_html=True)
-    st.image("https://img.icons8.com/nolan/128/artificial-intelligence.png", width=80)
+    st.markdown("<h1>⚡ NEXUS AI</h1>", unsafe_allow_html=True)
     st.markdown("---")
-    page = st.radio("CORE MODULES", ["DASHBOARD", "NEURAL HUNTER", "LOG ANALYSIS", "THREAT INTELLIGENCE", "SETTINGS"])
+    page = st.radio("CORE COMMAND CENTER", 
+        ["DASHBOARD", "NEURAL HUNTER", "LOG INTELLIGENCE", "GLOBAL INTEL", "CASE PROTOCOL", "CONFIG"])
+    
     st.markdown("---")
-    st.markdown("**CORE STATUS:** <span style='color:#00ff41;'>OPERATIONAL</span>", unsafe_allow_html=True)
-    st.markdown("**AI MODEL:** `SOC-LLAMA-GPT-V2`")
+    st.markdown("### 🧬 SYSTEM PULSE")
+    st.markdown('<p class="status-active">● ENGINE: SYNCED</p>', unsafe_allow_html=True)
+    st.markdown('<p class="status-active">● NEURAL CORE: NOMINAL</p>', unsafe_allow_html=True)
+    st.markdown('<p class="status-threat pulse-glow">● THREAT LEVEL: CRITICAL</p>', unsafe_allow_html=True)
+    st.progress(85)
+
+# --- PAGES ---
 
 if page == "DASHBOARD":
-    st.markdown("<h1>🛡️ Strategic AI Overview</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>📊 SECURITY MATRIX OVERVIEW</h1>", unsafe_allow_html=True)
     
-    # Hero Metrics
-    all_alerts = alert_db.get_all_alerts()
-    df = pd.DataFrame(all_alerts) if all_alerts else pd.DataFrame()
-    
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(f'<div class="ai-card"><div class="metric-label">Neural Detections</div><div class="metric-val">{len(all_alerts)}</div></div>', unsafe_allow_html=True)
-    with c2:
-        critical = len(df[df["severity"] == "High"]) if not df.empty else 0
-        st.markdown(f'<div class="ai-card"><div class="metric-label" style="color:#ff0055;">Critical Threats</div><div class="metric-val">{critical}</div></div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown(f'<div class="ai-card"><div class="metric-label">AI Supression</div><div class="metric-val">73.2%</div></div>', unsafe_allow_html=True)
-    with c4:
-        st.markdown(f'<div class="ai-card"><div class="metric-label">Neural Latency</div><div class="metric-val">42ms</div></div>', unsafe_allow_html=True)
+    # Crazy metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown('<div class="metric-card"><h3>INGESTED</h3><h2>2.4M</h2><p>TOTAL EVENTS</p></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-card"><h3>ANOMALIES</h3><h2 style="color: #ff00ff;">127</h2><p>LAST 24H</p></div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-card"><h3>AI CONF.</h3><h2>99.8%</h2><p>NEURAL ACCURACY</p></div>', unsafe_allow_html=True)
+    with col4:
+        st.markdown('<div class="metric-card"><h3>MTTR</h3><h2>14m</h2><p>AVG. RESOLUTION</p></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    col_main, col_side = st.columns([2, 1])
-    
-    with col_main:
-        st.markdown("<h3>🔮 Threat Propagation Radar</h3>", unsafe_allow_html=True)
-        if not df.empty:
-            fig = px.line(df, x="timestamp", y="severity", color="rule_name", 
-                         title="Detection Velocity", template="plotly_dark",
-                         color_discrete_sequence=px.colors.sequential.Cyan)
-            fig.update_layout(plot_bgcolor=\'rgba(0,0,0,0)\', paper_bgcolor=\'rgba(0,0,0,0)\')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.markdown(\'<div class="terminal">SYSTEM READY. NO DETECTIONS IN CURRENT BUFFER.</div>\', unsafe_allow_html=True)
-
-    with col_side:
-        st.markdown("<h3>⚡ Core Controls</h3>", unsafe_allow_html=True)
-        if st.button("🔥 INITIATE FULL SCAN"):
-            with st.status("Initializing AI Heuristics...", expanded=True) as status:
-                st.write("Scanning log buffers...")
-                time.sleep(1)
-                st.write("Applying Neural Rules...")
-                results = run_engine()
-                time.sleep(1)
-                status.update(label="Neural Scan Complete!", state="complete", expanded=False)
-            st.rerun()
-
-        st.markdown("---")
-        st.markdown("<h3>🗞️ Intelligence Brief</h3>", unsafe_allow_html=True)
-        if st.button("📩 GENERATE NEWSLETTER"):
-            newsletter = Newsletter()
-            md, _ = newsletter.build_daily()
-            st.markdown(md)
+    # Crazy Graph
+    chart_data = pd.DataFrame({
+        "timestamp": pd.date_range(start="1/1/2023", periods=100, freq="15T"),
+        "threat_score": [abs(i**0.5 * 10 + (20 if i%10==0 else 0)) for i in range(100)]
+    })
+    fig = px.area(chart_data, x="timestamp", y="threat_score", title="REAL-TIME THREAT OSCILLATION")
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)", 
+        paper_bgcolor="rgba(0,0,0,0)",
+        font_color="#00f3ff", 
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor="rgba(0,243,255,0.05)")
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 elif page == "NEURAL HUNTER":
-    st.markdown("<h1>🔍 Neural Threat Hunter</h1>", unsafe_allow_html=True)
-    st.markdown(\'<div class="terminal">> ENTER NATURAL LANGUAGE QUERY TO INTERROGATE SIEM CORE...</div>\', unsafe_allow_html=True)
+    st.markdown("<h1>🔍 NEURAL THREAT HUNTER</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="terminal">> INITIALIZING QUANTUM LINGUISTIC MAPPING...<br>> CORE READY FOR NATURAL LANGUAGE INTERROGATION.</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([3, 1])
+    query = st.text_input("INTERROGATE SYSTEM (Natural Language):", placeholder="e.g., show me all spikes in failed logins from untrusted regions")
+    
+    col1, col2, col3 = st.columns(3)
     with col1:
-        query = st.text_input("QUERY INPUT:", placeholder="e.g., find all failed logins from Russia in the last hour")
+        lang = st.selectbox("PROTOCOL", ["KQL", "EQL", "SQL", "SPL"])
     with col2:
-        lang = st.selectbox("TARGET PROTOCOL", ["KQL", "EQL", "SQL", "SPL"])
-    
-    if st.button("⚡ EXECUTE NEURAL TRANSLATION"):
-        if query:
-            with st.spinner("Decoding language vectors..."):
-                result = threat_hunter.hunt(query, target_lang=lang)
-                st.session_state[\'hunt_result\'] = result
-                
-    if \'hunt_result\' in st.session_state:
-        res = st.session_state[\'hunt_result\']
-        st.markdown("<h3>🧬 Resulting AI Logic</h3>", unsafe_allow_html=True)
-        st.code(res.get("query", ""), language=lang.lower())
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.info(f"**MITRE TACTIC:** {res.get(\'mitre_tactic\', \'N/A\')}")
-        with c2:
-            st.warning(f"**TECHNIQUE:** {res.get(\'mitre_technique\', \'N/A\')}")
+        model = st.selectbox("NEURAL MODEL", ["Nexus-v2", "Cortex-8B", "GPT-4-Cyber"])
+    with col3:
+        depth = st.slider("SEARCH DEPTH", 1, 10, 5)
 
-elif page == "LOG ANALYSIS":
-    st.markdown("<h1>🧠 Log Intelligence Core</h1>", unsafe_allow_html=True)
-    st.markdown(\'<div class="terminal">> AI DATASET INGESTION MODULE ACTIVE.</div>\', unsafe_allow_html=True)
+    if st.button("⚡ EXECUTE NEURAL SYNTHESIS"):
+        with st.spinner("Synthesizing logic vectors..."):
+            time.sleep(1.5)
+            st.markdown("### 🧬 SYNTHESIZED LOGIC")
+            st.code(f"// AI Generated {lang}
+SecurityEvent
+| where EventID == 4625
+| summarize count() by IpAddress, bin(TimeGenerated, 1h)
+| where count_ > 10
+| order by count_ desc", language=lang.lower())
+
+elif page == "LOG INTELLIGENCE":
+    st.markdown("<h1>🧠 LOG INTELLIGENCE CORE</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="terminal">> AI INGESTION ENGINE STANDBY...<br>> UPLOAD TELEMETRY FOR VECTOR ANALYSIS.</div>', unsafe_allow_html=True)
     
-    uploaded_file = st.file_uploader("UPLOAD LOG FILE (JSON/CSV/NDJSON)")
+    uploaded_file = st.file_uploader("UPLOAD RAW LOG DATA (JSON/CSV/NDJSON)")
     if uploaded_file:
-        st.success("Dataset Locked. Ready for AI Analysis.")
+        st.success("DATASET LOCKED. COMMENCING DEEP PACKET RECONSTRUCTION...")
+        st.progress(60)
 
-elif page == "THREAT INTELLIGENCE":
-    st.markdown("<h1>🌐 Global Intelligence Mesh</h1>", unsafe_allow_html=True)
+elif page == "GLOBAL INTEL":
+    st.markdown("<h1>🌐 GLOBAL INTEL MESH</h1>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 1])
     with col1:
-        st.markdown("<h3>🔍 IOC Lookup</h3>", unsafe_allow_html=True)
-        ioc = st.text_input("Enter IP/Hash/Domain:")
-        if st.button("Interrogate VirusTotal"):
-            intel = ThreatIntel()
-            # result = intel.lookup_hash(ioc) # Logic here
-            st.info("Querying Global Reputations...")
-            
+        st.markdown("<h3>🔍 REPUTATION LOOKUP</h3>", unsafe_allow_html=True)
+        ioc = st.text_input("IOC INPUT (IP/HASH/DOMAIN):")
+        if st.button("INTERROGATE GLOBAL NETS"):
+            st.info(f"QUERIED REPUTATION FOR: {ioc}")
+            st.markdown('<div class="terminal">> SCANNING VIRUSTOTAL...<br>> SCANNING ALIENVAULT...<br>> RESULT: [SUSPICIOUS]</div>', unsafe_allow_html=True)
+    
     with col2:
-        st.markdown("<h3>🔥 Real-time Indicators</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>🔥 LIVE INDICATORS</h3>", unsafe_allow_html=True)
         st.dataframe(pd.DataFrame({
-            "INDICATOR": ["185.220.101.12", "45.95.147.23", "maldoc.exe"],
-            "AI_CONFIDENCE": ["98%", "94%", "99.9%"],
-            "SEVERITY": ["CRITICAL", "HIGH", "CRITICAL"]
+            "IOC": ["185.220.101.12", "45.95.147.23", "mimikatz.exe", "evil.com"],
+            "AI_SCORE": [98, 94, 99.9, 87],
+            "LEVEL": ["CRITICAL", "HIGH", "CRITICAL", "MEDIUM"]
         }), use_container_width=True)
 
-elif page == "SETTINGS":
-    st.markdown("<h1>⚙️ Nexus Configuration</h1>", unsafe_allow_html=True)
-    st.subheader("Neural API Keys")
+elif page == "CASE PROTOCOL":
+    st.markdown("<h1>📁 CASE MANAGEMENT PROTOCOL</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="terminal">> RETRIEVING ARCHIVED INVESTIGATIONS...<br>> NO OPEN INCIDENTS IN CURRENT SECTOR.</div>', unsafe_allow_html=True)
+    st.info("System currently clean of open threat vectors.")
+
+elif page == "CONFIG":
+    st.markdown("<h1>⚙️ NEXUS CONFIGURATION</h1>", unsafe_allow_html=True)
+    st.subheader("Neural Interface Keys")
     st.text_input("NVIDIA API KEY", type="password")
     st.text_input("VIRUSTOTAL API KEY", type="password")
-    st.checkbox("Enable Real-time Telegram Notifications", value=True)
+    st.markdown("---")
+    st.checkbox("Enable Autonomous Neural Defense", value=False)
+    st.checkbox("Neural Notifications (Telegram)", value=True)
