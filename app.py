@@ -31,7 +31,7 @@ st.set_page_config(page_title="AI SOC NEXUS", page_icon="🌐", layout="wide")
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
-
+    
     :root {
         --primary-neon: #00f3ff;
         --secondary-neon: #ff00ff;
@@ -93,25 +93,46 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         transition: transform 0.3s;
     }
-    .metric-card:hover { transform: translateY(-5px); border-color: var(--secondary-neon); }
 
-    .status-active { color: #0f0; text-shadow: 0 0 5px #0f0; font-weight: bold; }
-    .status-threat { color: #f00; text-shadow: 0 0 5px #f00; font-weight: bold; }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--secondary-neon);
+    }
+
+    .status-active {
+        color: #0f0;
+        text-shadow: 0 0 5px #0f0;
+        font-weight: bold;
+    }
+
+    .status-threat {
+        color: #f00;
+        text-shadow: 0 0 5px #f00;
+        font-weight: bold;
+    }
 
     @keyframes pulse {
         0% { transform: scale(1); opacity: 0.8; }
         50% { transform: scale(1.05); opacity: 1; }
         100% { transform: scale(1); opacity: 0.8; }
     }
+
     .pulse-glow {
         animation: pulse 1.5s infinite ease-in-out;
         color: var(--secondary-neon);
     }
 
     /* Custom scrollbar */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #0a0b10; }
-    ::-webkit-scrollbar-thumb { background: var(--primary-neon); border-radius: 10px; }
+    ::-webkit-scrollbar {
+        width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #0a0b10;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary-neon);
+        border-radius: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,7 +141,7 @@ with st.sidebar:
     st.markdown("<h1>⚡ NEXUS AI</h1>", unsafe_allow_html=True)
     st.markdown("---")
     page = st.radio("CORE COMMAND CENTER", 
-        ["DASHBOARD", "NEURAL HUNTER", "LOG INTELLIGENCE", "GLOBAL INTEL", "CASE PROTOCOL", "CONFIG"])
+                  ["DASHBOARD", "NEURAL HUNTER", "LOG INTELLIGENCE", "GLOBAL INTEL", "CASE PROTOCOL", "CONFIG"])
     
     st.markdown("---")
     st.markdown("### 🧬 SYSTEM PULSE")
@@ -130,7 +151,6 @@ with st.sidebar:
     st.progress(85)
 
 # --- PAGES ---
-
 if page == "DASHBOARD":
     st.markdown("<h1>📊 SECURITY MATRIX OVERVIEW</h1>", unsafe_allow_html=True)
     
@@ -180,11 +200,11 @@ elif page == "NEURAL HUNTER":
         with st.spinner("Synthesizing logic vectors..."):
             time.sleep(1.5)
             st.markdown("### 🧬 SYNTHESIZED LOGIC")
-            st.code(f"// AI Generated {lang}
-SecurityEvent
-| where EventID == 4625
-| summarize count() by IpAddress, bin(TimeGenerated, 1h)
-| where count_ > 10
+            st.code(f"// AI Generated {lang}\
+SecurityEvent\
+| where EventID == 4625\
+| summarize count() by IpAddress, bin(TimeGenerated, 1h)\
+| where count_ > 10\
 | order by count_ desc", language=lang.lower())
 
 elif page == "LOG INTELLIGENCE":
