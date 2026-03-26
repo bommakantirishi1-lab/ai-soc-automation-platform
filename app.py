@@ -157,10 +157,10 @@ st.markdown("""
         to { text-shadow: 0 0 30px var(--secondary-neon), 0 0 50px var(--secondary-neon); opacity: 1; }
     }
 
-    /* Plotly Chart Enhancements */
-    .js-plotly-plot .plotly .modebar {
-        display: none !important;
-    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #0a0b10; }
+    ::-webkit-scrollbar-thumb { background: var(--primary-neon); border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -209,12 +209,12 @@ if page == "DASHBOARD":
     fig.add_trace(go.Scatter(
         x=chart_data["timestamp"], 
         y=chart_data["threat_score"],
-        fill=\'tozeroy\',
-        mode=\'lines\',
-        line=dict(color=\'#00f3ff\', width=3),
-        fillcolor=\'rgba(0, 243, 255, 0.1)\',
-        hoverinfo=\'x+y\',
-        name=\'Threat Oscillation\'
+        fill="tozeroy",
+        mode="lines",
+        line=dict(color="#00f3ff", width=3),
+        fillcolor="rgba(0, 243, 255, 0.1)",
+        hoverinfo="x+y",
+        name="Threat Oscillation"
     ))
     
     fig.update_layout(
@@ -253,17 +253,17 @@ elif page == "NEURAL HUNTER":
         with st.spinner("Decoding linguistic vectors..."):
             time.sleep(1.2)
             st.markdown("### 🧬 SYNTHESIZED NEURAL LOGIC")
-            st.code(f"// AI Generated {lang}
+            st.code("// AI Generated Code
 SecurityEvent
 | where EventID in (4728, 4732, 4756)
 | extend TargetGroup = tostring(TargetGroup)
-| where TargetGroup contains \'Admin\'
+| where TargetGroup contains 'Admin'
 | summarize count() by User, TargetGroup, TimeGenerated
 | order by TimeGenerated desc", language=lang.lower())
-            st.markdown("<p style=\'color:#0f0; font-size:0.8rem;\'>● LOGIC VALIDATED BY NEURAL ENGINE</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#0f0; font-size:0.8rem;'>● LOGIC VALIDATED BY NEURAL ENGINE</p>", unsafe_allow_html=True)
 
 elif page == "LOG INTELLIGENCE":
-    st.markdown("<h1 class=\'main-header\'>LOG RECONSTRUCTION CORE</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>LOG RECONSTRUCTION CORE</h1>", unsafe_allow_html=True)
     st.markdown("""
     <div class="terminal-container">
         <div class="terminal-header">INGESTION_STATUS: STANDBY</div>
@@ -281,35 +281,35 @@ elif page == "LOG INTELLIGENCE":
         st.progress(60)
 
 elif page == "GLOBAL INTEL":
-    st.markdown("<h1 class=\'main-header\'>GLOBAL INTELLIGENCE MESH</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>GLOBAL INTELLIGENCE MESH</h1>", unsafe_allow_html=True)
     
     col_left, col_right = st.columns([1, 1])
     with col_left:
-        st.markdown("<h3 style=\'color:#00f3ff;\'>🔍 REPUTATION INTERROGATOR</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color:#00f3ff;'>🔍 REPUTATION INTERROGATOR</h3>", unsafe_allow_html=True)
         ioc = st.text_input("IOC INPUT (IP/HASH/DOMAIN):")
         if st.button("QUERY GLOBAL NETWORKS"):
-            st.markdown(f\"\"\"
-            <div class=\\\"terminal-container\\\">
-                <div class=\\\"terminal-header\\\">INTEL_QUERY: {ioc}</div>
-                <div class=\\\"terminal-text\\\">
+            st.markdown(f"""
+            <div class="terminal-container">
+                <div class="terminal-header">INTEL_QUERY: {ioc}</div>
+                <div class="terminal-text">
                     > [INTEL] SCANNING VIRUSTOTAL MESH... [MATCH FOUND]<br>
                     > [INTEL] SCANNING ALIENVAULT OTX... [MATCH FOUND]<br>
                     > [INTEL] SCORE: 88/100 (MALICIOUS)<br>
                     > [INTEL] CATEGORY: RANSOMWARE_CNC_
                 </div>
             </div>
-            \"\"\", unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     
     with col_right:
-        st.markdown("<h3 style=\'color:#ff00ff;\'>🔥 LIVE INDICATORS</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color:#ff00ff;'>🔥 LIVE INDICATORS</h3>", unsafe_allow_html=True)
         st.dataframe(pd.DataFrame({
             "INDICATOR": ["185.220.101.12", "45.95.147.23", "mimikatz.exe", "evil-cnc.ru"],
             "AI_SCORE": [98.2, 94.5, 99.9, 87.1],
             "LEVEL": ["CRITICAL", "HIGH", "CRITICAL", "MEDIUM"]
-        }).style.background_gradient(cmap=\'magma\'), use_container_width=True)
+        }), use_container_width=True)
 
 elif page == "CASE PROTOCOL":
-    st.markdown("<h1 class=\'main-header\'>INCIDENT CASE PROTOCOL</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>INCIDENT CASE PROTOCOL</h1>", unsafe_allow_html=True)
     st.markdown("""
     <div class="terminal-container">
         <div class="terminal-header">SOAR_STATUS: NOMINAL</div>
@@ -322,8 +322,8 @@ elif page == "CASE PROTOCOL":
     st.info("System state: SECURE.")
 
 elif page == "CONFIG":
-    st.markdown("<h1 class=\'main-header\'>INTERFACE CONFIGURATION</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style=\'color:#00f3ff;\'>NEURAL INTERFACE KEYS</h3>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>INTERFACE CONFIGURATION</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#00f3ff;'>NEURAL INTERFACE KEYS</h3>", unsafe_allow_html=True)
     st.text_input("NVIDIA NIM API KEY", type="password")
     st.text_input("VIRUSTOTAL API KEY", type="password")
     st.markdown("---")
