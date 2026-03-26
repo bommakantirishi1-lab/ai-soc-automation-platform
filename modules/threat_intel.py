@@ -1,97 +1,80 @@
-import json
+# modules/threat_intel.py
+import os
+import requests
 import sqlite3
-from dataclasses import dataclass, asdict
-from datetime import datetime
-from typing import List, Optional
-import logging
+import datetime as dt
+import json
 
-logger = logging.getLogger(__name__)
+VT_URL = "https://www.virustotal.com/api/v3"
 
-@dataclass
-class ThreatIndicator:
-    ioc: str
-    ioc_type: str
-    confidence: str
-    source: str
-    timestamp: str
-    threat_level: str
-    tags: List[str]
-    last_seen: str
-
-class ThreatIntelligence:
-    def __init__(self, db_path="data/threat_intel.db"):
+class ThreatIntel:
+    def __init__(self, api_key: str | None = None, db_path: str = "soc_platform.db"):
+        self.api_key = api_key or os.getenv("VT_API_KEY", "")
         self.db_path = db_path
-        self._init_db()
+        self._ensure_cache()
 
-    def _init_db(self):
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS indicators (
-                        ioc TEXT PRIMARY KEY,
-                        ioc_type TEXT,
-                        confidence TEXT,
-                        source TEXT,
-                        timestamp TEXT,
-                        threat_level TEXT,
-                        tags TEXT,
-                        last_seen TEXT
-                    )
-                """)
-        except Exception as e:
-            logger.error(f"Error initializing threat intel database: {e}")
-
-    def add_indicator(self, indicator: ThreatIndicator):
-        data = asdict(indicator)
-        data['tags'] = json.dumps(data['tags'])
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO indicators
-                    (ioc, ioc_type, confidence, source, timestamp, threat_level, tags, last_seen)
-                    VALUES (:ioc, :ioc_type, :confidence, :source, :timestamp, :threat_level, :tags, :last_seen)
-                """, data)
-        except Exception as e:
-            logger.error(f"Error adding indicator {indicator.ioc}: {e}")
-
-    def update_feeds(self):
-        """Fetch latest updates from configured threat feeds (Mocked for MVP)"""
-        mock_indicators = [
-            ThreatIndicator(
-                ioc="185.220.101.12",
-                ioc_type="IP",
-                confidence="High",
-                source="Tor Exit Node List",
-                timestamp=datetime.utcnow().isoformat(),
-                threat_level="Medium",
-                tags=["tor", "anonymous"],
-                last_seen=datetime.utcnow().isoformat()
-            ),
-            ThreatIndicator(
-                ioc="45.95.147.23",
-                ioc_type="IP",
-                confidence="High",
-                source="Known Brute Forcer",
-                timestamp=datetime.utcnow().isoformat(),
-                threat_level="High",
-                tags=["ssh_brute", "attacker"],
-                last_seen=datetime.utcnow().isoformat()
+    def _ensure_cache(self):
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vt_cache (
+                ioc TEXT PRIMARY KEY,
+                type TEXT,
+                last_seen TEXT,
+                malicious INT,
+                suspicious INT,
+                harmless INT,
+                json TEXT
             )
-        ]
-        for ind in mock_indicators:
-            self.add_indicator(ind)
-        return len(mock_indicators)
+            """
+        )
+        conn.commit()
+        conn.close()
 
-    def check_ioc(self, ioc: str) -> Optional[dict]:
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.execute("SELECT * FROM indicators WHERE ioc = ?", (ioc,))
-                row = cur.fetchone()
-                if row:
-                    data = dict(row)
-                    data['tags'] = json.loads(data['tags'])
-                    return data
-        except Exception as e:
-            logger.error(f"Error checking IOC {ioc}: {e}")
+    def _cached(self, ioc: str):
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT json FROM vt_cache WHERE ioc = ?", (ioc,))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0])
         return None
+
+    def _store(self, ioc: str, type_: str, data: dict):
+        stats = data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT OR REPLACE INTO vt_cache
+            (ioc, type, last_seen, malicious, suspicious, harmless, json)
+            VALUES (?,?,?,?,?,?,?)
+            """,
+            (
+                ioc,
+                type_,
+                dt.datetime.utcnow().isoformat(),
+                stats.get("malicious", 0),
+                stats.get("suspicious", 0),
+                stats.get("harmless", 0),
+                json.dumps(data),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+    def _request(self, path: str):
+        headers = {"x-apikey": self.api_key}
+        resp = requests.get(f"{VT_URL}{path}", headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+
+    def lookup_hash(self, sha256: str) -> dict:
+        cached = self._cached(sha256)
+        if cached:
+            return cached
+        data = self._request(f"/files/{sha256}")
+        self._store(sha256, "hash", data)
+        return data
