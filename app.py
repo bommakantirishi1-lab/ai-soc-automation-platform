@@ -171,7 +171,7 @@ with st.sidebar:
     st.markdown("---")
     
     page = st.radio("COMMAND PROTOCOLS", 
-                  ["DASHBOARD", "NEURAL HUNTER", "LOG INTELLIGENCE", "GLOBAL INTEL", "CASE PROTOCOL", "CONFIG"])
+                  ["DASHBOARD", "NEURAL HUNTER", "LOG INTELLIGENCE", "GLOBAL INTEL", "CASE PROTOCOL", "CONFIG", "CEO REVIEWS"])
     
     st.markdown("---")
     st.markdown("### 🧬 BIOMETRIC SYNC")
@@ -324,3 +324,76 @@ elif page == "CONFIG":
     st.toggle("Enable Autonomous Neural Defense", value=False)
     st.toggle("Neural Telegram Notifications", value=True)
     st.toggle("High-Performance Matrix Rendering", value=True)
+    
+elif page == "CEO REVIEWS":
+    st.markdown("<h1 class='main-header'>CEO INTELLIGENCE REVIEWS</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#00f3ff; font-size:0.9rem;'>External evaluation of the AI SOC Automation Platform by industry leaders</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.markdown("""
+        <div style='background: rgba(10,15,30,0.95); border: 2px solid #00f3ff; border-radius: 20px; padding: 30px; box-shadow: 0 0 30px rgba(0,243,255,0.15); height: 100%;'>
+            <div style='display:flex; align-items:center; margin-bottom:15px;'>
+                <div style='width:55px; height:55px; border-radius:50%; background:linear-gradient(135deg,#00f3ff,#0050ff); display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-right:15px; box-shadow:0 0 15px rgba(0,243,255,0.4);'>&#127970;</div>
+                <div>
+                    <h3 style='color:#00f3ff; font-family:Orbitron,sans-serif; margin:0; font-size:1rem;'>DR. ARJUN RAO</h3>
+                    <p style='color:#aaa; font-size:0.75rem; margin:0;'>CEO &amp; Managing Director</p>
+                    <p style='color:#888; font-size:0.7rem; margin:0;'>Leading Indian Financial &amp; Infrastructure Conglomerate</p>
+                    <span style='background:rgba(0,243,255,0.1); color:#00f3ff; border:1px solid #00f3ff; border-radius:10px; padding:2px 10px; font-size:0.65rem;'>SERVICE-BASED CEO</span>
+                </div>
+            </div>
+            <div style='border-left:3px solid #00f3ff; padding-left:15px; margin:15px 0;'>
+                <p style='color:#e0e0e0; font-size:0.85rem; line-height:1.7; font-style:italic;'>&ldquo;Strong visual impact and futuristic interface with excellent natural language querying. The Neural Threat Interrogator could genuinely reduce mean-time-to-investigate for our Tier-2 analysts. However, at &#8377;50 crore we need demonstrable scalability to billions of events, explainable AI reasoning, enterprise-grade RBAC, compliance with ISO 27001 &amp; CERT-In, and integration with existing SIEM stacks. This is a compelling MVP &mdash; close the gaps and we talk seriously.&rdquo;</p>
+            </div>
+            <div style='display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;'>
+                <span style='background:rgba(0,243,255,0.1); color:#00f3ff; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9733; Visual Impact</span>
+                <span style='background:rgba(0,243,255,0.1); color:#00f3ff; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9733; NL Querying</span>
+                <span style='background:rgba(255,165,0,0.1); color:#ffa500; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9651; Needs Scalability</span>
+                <span style='background:rgba(255,165,0,0.1); color:#ffa500; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9651; Needs XAI</span>
+            </div>
+            <div style='margin-top:15px; padding:10px; background:rgba(0,243,255,0.05); border-radius:10px;'>
+                <p style='color:#00f3ff; font-size:0.75rem; margin:0;'>&#128176; Valuation Interest: &#8377;50 Crore (subject to PoC &amp; due diligence)</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_right:
+        st.markdown("""
+        <div style='background: rgba(10,15,30,0.95); border: 2px solid #ff00ff; border-radius: 20px; padding: 30px; box-shadow: 0 0 30px rgba(255,0,255,0.15); height: 100%;'>
+            <div style='display:flex; align-items:center; margin-bottom:15px;'>
+                <div style='width:55px; height:55px; border-radius:50%; background:linear-gradient(135deg,#ff00ff,#9400d3); display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-right:15px; box-shadow:0 0 15px rgba(255,0,255,0.4);'>&#128640;</div>
+                <div>
+                    <h3 style='color:#ff00ff; font-family:Orbitron,sans-serif; margin:0; font-size:1rem;'>VIKRAM MALHOTRA</h3>
+                    <p style='color:#aaa; font-size:0.75rem; margin:0;'>Founder &amp; CEO</p>
+                    <p style='color:#888; font-size:0.7rem; margin:0;'>AI-Driven Cybersecurity SaaS Company</p>
+                    <span style='background:rgba(255,0,255,0.1); color:#ff00ff; border:1px solid #ff00ff; border-radius:10px; padding:2px 10px; font-size:0.65rem;'>PRODUCT-BASED CEO</span>
+                </div>
+            </div>
+            <div style='border-left:3px solid #ff00ff; padding-left:15px; margin:15px 0;'>
+                <p style='color:#e0e0e0; font-size:0.85rem; line-height:1.7; font-style:italic;'>&ldquo;Your dashboard has strong product DNA &mdash; the cyberpunk aesthetic is engaging and memorable. The Neural Threat Interrogator is a killer differentiator; analysts who stare at screens 10+ hours will enjoy this. The modular flow is clean and opinionated. Key focus areas: explainability of AI decisions, deeper intelligence correlation, scalability proof, end-to-end workflow completion, and enterprise hygiene (RBAC, air-gapped deployment, pricing tiers). This could evolve into a category-defining product.&rdquo;</p>
+            </div>
+            <div style='display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;'>
+                <span style='background:rgba(255,0,255,0.1); color:#ff00ff; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9733; Product DNA</span>
+                <span style='background:rgba(255,0,255,0.1); color:#ff00ff; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9733; Differentiator</span>
+                <span style='background:rgba(255,165,0,0.1); color:#ffa500; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9651; Needs XAI</span>
+                <span style='background:rgba(255,165,0,0.1); color:#ffa500; border-radius:8px; padding:3px 10px; font-size:0.7rem;'>&#9651; Deeper Intel</span>
+            </div>
+            <div style='margin-top:15px; padding:10px; background:rgba(255,0,255,0.05); border-radius:10px;'>
+                <p style='color:#ff00ff; font-size:0.75rem; margin:0;'>&#129309; Open to collaboration, investment &amp; integration partnership</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style='background: rgba(10,15,30,0.95); border: 1px solid rgba(0,243,255,0.3); border-radius: 15px; padding: 20px; text-align:center;'>
+        <h4 style='color:#00f3ff; font-family:Orbitron,sans-serif; margin-bottom:10px;'>&#128200; CONSENSUS VERDICT</h4>
+        <p style='color:#e0e0e0; font-size:0.85rem; max-width:800px; margin:0 auto; line-height:1.7;'>
+            Both CEOs agree: the AI SOC Automation Platform has <strong style='color:#00f3ff;'>outstanding visual design, strong NLP querying, and genuine innovation potential</strong>. 
+            The critical path to enterprise adoption requires <strong style='color:#ff00ff;'>explainable AI, proven scalability, deeper threat correlation, and enterprise compliance features</strong>.
+            The platform is positioned to evolve from a powerful prototype into a <strong style='color:#0f0;'>category-defining AI-native SOC solution</strong>.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
