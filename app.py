@@ -1,239 +1,217 @@
-import streamlit as st
+import math
+from datetime import datetime
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import time
-from datetime import datetime
-import random
+import streamlit as st
 
-# Page config
-st.set_page_config(
-    page_title="Global Security Matrix",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+from socflow_v2.core import (
+    compute_ueba,
+    copilot_response,
+    correlate_incidents,
+    executive_summary,
+    generate_synthetic_alerts,
+    build_attack_graph,
+    enrich_threat_intel,
 )
 
-# Custom CSS for Cyberpunk theme (toggleable)
-def apply_theme(is_cyberpunk: bool):
-    if is_cyberpunk:
-        st.markdown("""
-        <style>
-        .stApp { background: linear-gradient(180deg, #0a0a1f, #1a0033); color: #fff; }
-        .metric { font-size: 2.8rem; color: #00f7ff; text-shadow: 0 0 20px #00f7ff; }
-        .card { background: rgba(20,20,50,0.9); border: 2px solid #00f7ff; border-radius: 16px; padding: 20px; }
-        h1, h2, h3 { color: #c300ff; text-shadow: 0 0 15px #c300ff; }
-        </style>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <style>
-        .stApp { background: #f8f9fa; color: #111; }
-        .metric { font-size: 2.8rem; color: #0066cc; }
-        .card { background: #fff; border: 1px solid #0066cc; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        </style>
-        """, unsafe_allow_html=True)
 
-# Initialize session state
-if "theme_cyberpunk" not in st.session_state:
-    st.session_state.theme_cyberpunk = True
-if "last_refresh" not in st.session_state:
-    st.session_state.last_refresh = time.time()
-if "ingested" not in st.session_state:
-    st.session_state.ingested = 2487319
-if "anomalies" not in st.session_state:
-    st.session_state.anomalies = 143
-if "audit_logs" not in st.session_state:
-    st.session_state.audit_logs = [
-        "10:47 IST • IOC query executed",
-        "10:46 IST • Anomaly drill-down viewed",
-        "10:45 IST • Theme changed"
-    ]
+st.set_page_config(page_title="SOCFlow v2", page_icon="🛡️", layout="wide")
 
-# Cached data generators (optimized)
-@st.cache_data(ttl=10)  # Refresh every 10s for live feel
-def get_live_metrics():
-    return {
-        "ingested": st.session_state.ingested + random.randint(8000, 18000),
-        "anomalies": st.session_state.anomalies + random.randint(2, 8),
-        "threat_score": round(random.uniform(75, 98), 1),
-        "eps": random.randint(4200, 12800),
-        "latency": random.randint(25, 65)
-    }
+st.markdown(
+    """
+    <style>
+    .stApp { background: #0a1220; color: #e4edf9; }
+    .block-container { padding-top: 1rem; }
+    .metric-card { border: 1px solid #1f3f64; border-radius: 12px; padding: 14px; background: #0f1d33; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-@st.cache_data
-def get_anomalies_df():
-    return pd.DataFrame({
-        "Time": ["10:42 IST", "10:39 IST", "10:35 IST", "10:30 IST"],
-        "Type": ["Privilege Escalation", "Beaconing", "Lateral Movement", "Suspicious Login"],
-        "Score": [98.7, 76.2, 94.1, 82.5],
-        "Description": [
-            "Admin group modified by unknown service account",
-            "Ransomware C2 pattern on IP 185.220.101.12",
-            "DC logon from non-standard workstation",
-            "Multiple failed logins from external IP"
-        ]
-    })
+st.title("🛡️ SOCFlow v2 — AI-Powered SOC Platform")
+st.caption("Enterprise-ready SOC demo: Correlation • UEBA • MITRE • Copilot • SOAR playbooks")
 
-@st.cache_data
-def get_timeline_data():
-    times = pd.date_range(end=datetime.now(), periods=12, freq='5min')
-    return pd.DataFrame({
-        "Time": times,
-        "Threat Level": [random.randint(60, 95) for _ in range(12)],
-        "Events": [random.randint(800, 5200) for _ in range(12)]
-    })
-
-# Main Title
-st.title("🌐 GLOBAL SECURITY MATRIX")
-st.caption("AI SOC Automation Platform • v2.1 • Production Optimized")
-
-# Theme toggle in sidebar
 with st.sidebar:
-    st.header("⚙️ Controls")
-    if st.button("Toggle Theme (Cyberpunk ↔ Enterprise)"):
-        st.session_state.theme_cyberpunk = not st.session_state.theme_cyberpunk
-        st.rerun()
-    
-    st.markdown("**Current Theme:** " + ("**Cyberpunk Neon**" if st.session_state.theme_cyberpunk else "**Classic Enterprise**"))
+    st.header("Control Plane")
+    seed = st.number_input("Simulation seed", min_value=1, max_value=9999, value=42)
+    event_count = st.slider("Alert volume", min_value=60, max_value=500, value=180)
+    refresh = st.button("Regenerate scenario")
+    st.markdown("---")
+    st.write("**Copilot Runtime**")
+    ollama_endpoint = st.text_input("Ollama endpoint", value="http://localhost:11434")
+    st.caption("Runs locally when available. Dashboard uses deterministic fallback text if unavailable.")
 
-apply_theme(st.session_state.theme_cyberpunk)
+if refresh:
+    st.cache_data.clear()
 
-# Auto-refresh logic (every ~5 seconds)
-if time.time() - st.session_state.last_refresh > 5:
-    metrics = get_live_metrics()
-    st.session_state.ingested = metrics["ingested"]
-    st.session_state.anomalies = metrics["anomalies"]
-    st.session_state.last_refresh = time.time()
-    # st.rerun() # Uncomment if you want forced refresh; otherwise metrics update naturally
 
-metrics = get_live_metrics()
+@st.cache_data(show_spinner=False)
+def load_data(_seed: int, _count: int):
+    alerts = generate_synthetic_alerts(count=_count, seed=_seed)
+    incidents = correlate_incidents(alerts)
+    ueba = compute_ueba(alerts)
+    summary = executive_summary(alerts, incidents)
+    return alerts, incidents, ueba, summary
 
-# Tabs for navigation (cleaner than buttons)
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 Dashboard",
-    "🧠 Neural Threat Interrogator",
-    "📥 Log Reconstruction",
-    "🌐 Intelligence Mesh",
-    "🚨 Incident Protocol",
-    "⚙️ Configuration"
-])
 
-with tab1:  # Dashboard
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("INGESTED TELEMETRY", f"{metrics['ingested']:,}", "↑ Live")
-    with col2:
-        if st.button(f"ANOMALIES: **{metrics['anomalies']}**", type="secondary", use_container_width=True):
-            st.session_state.show_anomaly_modal = True
-    with col3:
-        st.metric("AI THREAT SCORE", f"{metrics['threat_score']}", "MODERATE")
-    with col4:
-        st.metric("LATENCY (p95)", f"{metrics['latency']}ms", f"{metrics['eps']} eps")
-    
-    # Scalability Panel
-    st.subheader("🔧 Scalability & Backend Health")
-    health_cols = st.columns(3)
-    with health_cols[0]:
-        st.success(f"**Events/sec:** {metrics['eps']}\n\nCluster: 12/12 healthy")
-    with health_cols[1]:
-        st.info(f"**p95 Latency:** {metrics['latency']}ms\n\nKubernetes Ready")
-    with health_cols[2]:
-        st.warning("Storage: 2.8 PB • Petabyte scale confirmed")
-    
-    # Threat Correlation Timeline
-    st.subheader("📈 Threat Correlation Timeline (Last Hour)")
-    timeline_df = get_timeline_data()
-    fig = px.line(timeline_df, x="Time", y="Threat Level", markers=True,
-                  title="Threat Activity Trend", color_discrete_sequence=["#00f7ff"])
-    fig.add_bar(x=timeline_df["Time"], y=timeline_df["Events"], name="Events", opacity=0.3)
-    st.plotly_chart(fig, use_container_width=True)
+alerts, incidents, ueba_rows, summary = load_data(seed, event_count)
+alerts_df = pd.DataFrame([a.__dict__ for a in alerts]).sort_values("timestamp", ascending=False)
+incidents_df = pd.DataFrame(incidents)
+ueba_df = pd.DataFrame(ueba_rows)
 
-with tab2:  # Neural Threat Interrogator
-    st.subheader("🧠 Neural Threat Interrogator")
-    
-    sample_queries = [
-        "detect unusual admin group modifications in the last 24 hours",
-        "correlate IOC 185.220.101.12 with recent logins",
-        "identify lateral movement in domain controller logs",
-        "check for ransomware beaconing patterns"
+k1, k2, k3, k4, k5 = st.columns(5)
+k1.metric("Alerts", f"{summary['alerts']}")
+k2.metric("Correlated Incidents", f"{summary['incidents']}")
+k3.metric("Automation Rate", f"{summary['automation_rate']}%")
+k4.metric("MTTR", f"{summary['mttr_minutes']} min")
+k5.metric("High/Critical Prevented", f"{summary['high_critical_prevented']}")
+
+
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    [
+        "Detection & Correlation",
+        "AI SOC Copilot",
+        "UEBA",
+        "Threat Intel",
+        "SOAR + Attack Graph",
+        "Compliance Reports",
     ]
-    
-    query = st.text_area("Enter natural language query:",
-                        placeholder="e.g., detect unusual admin group modifications...",
-                        height=100)
-    
-    if st.button("🚀 INTERROGATE NEURAL CORE", type="primary"):
-        with st.spinner("Quantum linguistic mapping in progress..."):
-            time.sleep(1.2)  # Simulate processing
-        
-        st.success("Threat analysis complete (91.3% confidence)")
-        
-        # XAI Panel
-        st.subheader("Explainable AI (XAI) Reasoning Chain")
-        st.info("**Data Sources:** Active Directory + Firewall + Endpoint")
-        st.info("**Reasoning:** Admin group modified by service account → anomalous privilege escalation pattern")
-        st.info("**Confidence:** 91.3% (based on 14 historical matches)")
-        st.info("**Recommendation:** Immediate session termination + group rollback")
+)
 
-with tab3:  # Log Reconstruction
-    st.subheader("📥 Log Reconstruction Core")
-    uploaded_file = st.file_uploader("Drop telemetry / logs here (JSON, CSV, NDJSON, SYSLOG)",
-                                    type=["json", "csv", "log"])
-    if uploaded_file:
-        st.success(f"✅ Uploaded & reconstructed {random.randint(800000, 2400000)} events in 3.8s")
-        st.info("47 new anomalies correlated and added to timeline")
+with tab1:
+    st.subheader("Live SIEM-Style Ingestion and Correlation")
+    c1, c2 = st.columns([1.3, 1])
+    with c1:
+        st.dataframe(
+            alerts_df[["alert_id", "timestamp", "event_type", "severity", "user", "source_ip", "host", "base_score"]],
+            use_container_width=True,
+            height=350,
+            hide_index=True,
+        )
+    with c2:
+        severity_counts = alerts_df["severity"].value_counts().reindex(["Critical", "High", "Medium", "Low"]).fillna(0)
+        fig = px.bar(
+            x=severity_counts.index,
+            y=severity_counts.values,
+            color=severity_counts.index,
+            color_discrete_map={"Critical": "#f43f5e", "High": "#f97316", "Medium": "#fbbf24", "Low": "#22c55e"},
+            title="Alert Severity Distribution",
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-with tab4:  # Intelligence Mesh
-    st.subheader("🌐 Global Intelligence Mesh")
-    ioc = st.text_input("IOC Input (IP / Hash / Domain):", "185.220.101.12")
-    if st.button("Query Global Networks"):
-        st.success("Query completed across 7 feeds + VirusTotal")
-        st.metric("AI Score", "98.2", "CRITICAL")
-        st.write("**Level:** CRITICAL • Sources: NVIDIA NIM + Global Threat Feeds")
+    st.markdown("#### Top Correlated Incidents")
+    st.dataframe(
+        incidents_df[["incident_id", "entity", "source_ip", "alert_count", "avg_score", "severity", "recommended_playbook"]].head(12),
+        use_container_width=True,
+        hide_index=True,
+    )
 
-with tab5:  # Incident Protocol
-    st.subheader("🚨 Incident Case Protocol")
-    st.success("SOAR STATUS: **NOMINAL** • System state: SECURE")
-    
-    if st.button("Start End-to-End Workflow Demo"):
-        st.write("**Step 1:** Query received from Neural Interrogator")
-        st.write("**Step 2:** Case #SOC-20260327-014 created (HIGH severity)")
-        st.write("**Step 3:** Automated actions: Session terminated + Containment playbook executed")
-        st.success("**Step 4:** Incident resolved • Audit logged • System SECURE")
+with tab2:
+    st.subheader("AI SOC Copilot (Local-first)")
+    st.caption("This tab is wired for local-LLM workflow and ships with deterministic fallback guidance.")
 
-with tab6:  # Configuration
-    st.subheader("⚙️ Interface Configuration")
-    
-    # RBAC & Audit
-    st.subheader("RBAC & Audit Logging")
-    st.write("Current User: **SOC-Admin** (Tier-3)")
-    st.write("Recent Audit Events:")
-    for log in st.session_state.audit_logs:
-        st.caption(log)
-    
-    # Pricing Tiers
-    st.subheader("Pricing Tiers")
-    cols = st.columns(3)
-    with cols[0]:
-        st.info("**Starter**\n₹8.9L/mo\n10M events/day")
-    with cols[1]:
-        st.success("**Pro (Recommended)**\n₹24L/mo\n100M events/day + Full XAI")
-    with cols[2]:
-        st.warning("**Enterprise**\nCustom\nUnlimited + On-prem")
+    prompt = st.text_area(
+        "Ask Copilot",
+        placeholder="Example: summarize the highest-risk incident and recommend first 3 response actions.",
+        height=120,
+    )
+    top_incident = incidents[0] if incidents else None
+    if st.button("Run Copilot Analysis", type="primary"):
+        response = copilot_response(prompt, top_incident)
+        st.success(response)
+        st.info(f"Configured endpoint: {ollama_endpoint}")
 
-# Anomaly Drill-down Modal (using st.dialog - modern & clean)
-@st.dialog("Anomaly Drill-Down")
-def anomaly_modal():
-    df = get_anomalies_df()
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    
-    if st.button("Close"):
-        st.rerun()
+    if top_incident:
+        st.markdown("#### Active Incident Context")
+        st.json(top_incident)
 
-if st.session_state.get("show_anomaly_modal", False):
-    anomaly_modal()
-    st.session_state.show_anomaly_modal = False
+with tab3:
+    st.subheader("UEBA — User & Entity Behavior Analytics")
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.dataframe(ueba_df, hide_index=True, use_container_width=True)
+    with c2:
+        fig = px.scatter(
+            ueba_df,
+            x="alert_volume",
+            y="ueba_risk",
+            color="status",
+            size="avg_alert_score",
+            hover_name="user",
+            title="UEBA Risk vs Volume",
+            color_discrete_map={"Watchlist": "#ef4444", "Normal": "#22c55e"},
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-# Footer
-st.caption("© 2026 AI SOC Automation Platform • Optimized with caching, session state & efficient rendering • All CEO feedback addressed")
+with tab4:
+    st.subheader("Threat Intel Enrichment")
+    selected_ip = st.selectbox("Select IOC IP", options=sorted(alerts_df["source_ip"].unique()))
+    intel = enrich_threat_intel(selected_ip)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Verdict", intel["verdict"])
+    c2.metric("Confidence", f"{intel['confidence']}%")
+    c3.metric("VirusTotal Detections", intel["virustotal_detections"])
+    c4.metric("AbuseIPDB Score", intel["abuseipdb_score"])
+
+    st.json(intel)
+
+with tab5:
+    st.subheader("SOAR Playbook Readiness + Attack Graph")
+    playbook_counts = incidents_df["recommended_playbook"].value_counts().reset_index()
+    playbook_counts.columns = ["playbook", "count"]
+
+    c1, c2 = st.columns([1, 1.1])
+    with c1:
+        fig = px.bar(playbook_counts, x="count", y="playbook", orientation="h", title="Playbook Execution Demand")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with c2:
+        nodes, edges = build_attack_graph(alerts)
+        coords = {}
+        for i, node in enumerate(nodes):
+            angle = 2 * math.pi * (i / max(len(nodes), 1))
+            coords[node] = (math.cos(angle), math.sin(angle))
+
+        edge_x, edge_y = [], []
+        for src, dst in edges:
+            x0, y0 = coords[src]
+            x1, y1 = coords[dst]
+            edge_x.extend([x0, x1, None])
+            edge_y.extend([y0, y1, None])
+
+        node_x = [coords[n][0] for n in nodes]
+        node_y = [coords[n][1] for n in nodes]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=edge_x, y=edge_y, mode="lines", line=dict(width=0.6, color="#64748b"), hoverinfo="none"))
+        fig.add_trace(
+            go.Scatter(
+                x=node_x,
+                y=node_y,
+                mode="markers+text",
+                text=nodes,
+                textposition="top center",
+                marker=dict(size=11, color="#60a5fa"),
+                hoverinfo="text",
+            )
+        )
+        fig.update_layout(title="Attack Path Graph", showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False), height=420)
+        st.plotly_chart(fig, use_container_width=True)
+
+with tab6:
+    st.subheader("Audit Logging & Compliance-Ready Reporting")
+    report_df = incidents_df[["incident_id", "entity", "source_ip", "severity", "alert_count", "avg_score", "recommended_playbook"]].copy()
+    report_df["generated_at"] = datetime.utcnow().isoformat()
+
+    st.dataframe(report_df, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Incident Report (CSV)",
+        report_df.to_csv(index=False).encode("utf-8"),
+        file_name=f"socflow_report_{datetime.utcnow():%Y%m%d_%H%M}.csv",
+        mime="text/csv",
+    )
+
+st.caption("SOCFlow v2 demo app • Designed for enterprise demos and stakeholder storytelling")
